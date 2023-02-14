@@ -58,6 +58,7 @@ def run(index, json_file):
             events = mne.read_events(eve_path)
 
             raw_filtered = raw.copy()
+            raw_filtered = raw_filtered.pick_types(meg=True, eeg=False, ref_meg=False)
             raw_filtered.load_data().crop(
                 tmin=raw_filtered.times[events[0, 0]],
                 tmax=raw_filtered.times[events[-1, 0]]

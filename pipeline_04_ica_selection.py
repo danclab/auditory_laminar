@@ -1,15 +1,14 @@
 import sys
 import json
 import numpy as np
-import pandas as pd
 import subprocess
 import mne
 import os.path as op
 from utilities import files
-# from pyedfread import edf
-from extra.tools import update_key_value, dump_the_dict, resamp_interp
+from extra.tools import update_key_value, dump_the_dict
 from ecgdetectors import Detectors
-from scipy.stats import pearsonr
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import gc
 
@@ -57,12 +56,6 @@ def run(index, json_file):
 
     for session in sessions:
         session_id = session.split("/")[-1]
-
-        # beh_path = op.join(path, "raw", subject_id, session_id, "behaviour")
-        #
-        # edf_paths = files.get_files(beh_path, "", ".edf")[2]
-        # edf_paths.sort()
-        # edf_paths = [i for i in edf_paths if "block" in i]
 
         sess_path = op.join(sub_path, session_id)
         files.make_folder(sess_path)
@@ -133,15 +126,13 @@ def run(index, json_file):
             )
             raw.filter(1, 20)
 
-            raw.close()
+            #raw.close()
 
             ica_com = ica.get_sources(raw)
-            raw = None
+            #raw = None
             gc.collect()
-            ica_times = ica_com.times
             ica_data = ica_com.get_data()
             ica_com.close()
-            ica_com = None
             gc.collect()
 
             # https://github.com/berndporr/py-ecg-detectors
@@ -172,95 +163,14 @@ def run(index, json_file):
             else:
                 hr = [666]
 
-            # samples, events, messages = edf.pread(edf_path)
-            # eye = ["left", "right"][events.eye.unique()[0]]
-            #
-            # del events
-            # del messages
-            #
-            # # cleaning the eyetracking datas
-            # samples = samples.loc[samples.time != 0.0]
-            # # start = samples.loc[samples.input == 252.]
-            # # end = samples.loc[samples.input == 253.]
-            # # start_ix = start.index[0] - 100
-            # # end_ix = end.index[-1] + 100
-            # # samples = samples.iloc[start_ix:end_ix]
-            # samples.reset_index(inplace=True)
-            # samples.time = samples.time - samples.time.iloc[0]
-            #
-            # # picking the relevant piece of data
-            # gx = samples["gx_{}".format(eye)]
-            # gy = samples["gy_{}".format(eye)]
-            # samples_times = samples.time / 1000
-            #
-            # del samples
-            #
-            # # resampling to meg sampling rate
-            # gx = resamp_interp(samples_times, gx, ica_times)
-            # gy = resamp_interp(samples_times, gy, ica_times)
-            #
-            # # gx, gy is a gaze screen position, EyeLink recorded blinks as position way
-            # # outside of the screen, thus safe threshold to detect blinks.
-            # # dependent on the screen resolution.
-            # blink_ix = np.where(gy > 600)[0]
-            #
-            # clean_gx = np.copy(gx)
-            # clean_gy = np.copy(gy)
-            # gx_iqr = np.percentile(gx, [25, 50])
-            # gy_iqr = np.percentile(gx, [25, 50])
-            # gx_iqr_med = np.median(gx[np.where((gx > gx_iqr[0]) & (gx < gx_iqr[1]))[0]])
-            # gy_iqr_med = np.median(gy[np.where((gy > gy_iqr[0]) & (gy < gy_iqr[1]))[0]])
-            #
-            # clean_gx[blink_ix] = gx_iqr_med
-            # clean_gy[blink_ix] = gy_iqr_med
-            #
-            # clean_gx = pd.Series(clean_gx).interpolate()
-            # clean_gy = pd.Series(clean_gy).interpolate()
-            # gx = pd.Series(gx)
-            # gy = pd.Series(gy)
-            #
-            # # x, y, clean_x, clean_y
-            # # ICA comp N x 4x(r, p)
-            ica_eog = []
-            # comp = []
-            # for i in range(ica_data.shape[0]):
-            #     out = []
-            #     for j in [gx, gy, clean_gx, clean_gy]:
-            #         lags = np.arange(-(20000), (20000), 10)  # contrained
-            #         rs = np.nan_to_num([crosscorr(pd.Series(ica_data[i]), j, lag) for lag in lags])
-            #         # out.append(pearsonr(j, ica_data[i]))
-            #         out.append(np.max(rs))
-            #     comp.append(out)
-            #     results = np.array(out)
-            #     if np.mean(np.abs(results) > 0.15) >= 0.25:
-            #         ica_eog.append(i)
-            #
-            #         fig = plt.figure()
-            #         fig.suptitle("{}-{}-{}".format(subject_id, session_id, numero))
-            #         fig.add_subplot(2, 2, 1)
-            #         plt.plot(gx, ica_data[i], '.')
-            #         plt.xlabel('gx')
-            #         plt.ylabel('comp {}'.format(i))
-            #         fig.add_subplot(2, 2, 2)
-            #         plt.plot(gy, ica_data[i], '.')
-            #         plt.xlabel('gy')
-            #         plt.ylabel('comp {}'.format(i))
-            #         fig.add_subplot(2, 2, 3)
-            #         plt.plot(clean_gx, ica_data[i], '.')
-            #         plt.xlabel('clean_gx')
-            #         plt.ylabel('comp {}'.format(i))
-            #         fig.add_subplot(2, 2, 4)
-            #         plt.plot(clean_gy, ica_data[i], '.')
-            #         plt.xlabel('clean_gy')
-            #         plt.ylabel('comp {}'.format(i))
-            #         plt.savefig(
-            #             op.join(qc_folder, "{}-{}-{}-eog_comp_{}.png".format(subject_id, session_id, numero, i)),
-            #             dpi=150,
-            #             bbox_inches="tight"
-            #         )
-            #         plt.close("all")
-            # eog_out[ica_key] = comp
-            #
+            # find which ICs match the EOG pattern
+            raw = mne.set_bipolar_reference(raw, ['EEG063'], ['EEG064'], ['EB'])
+
+            # specify this as the eye channel
+            raw.set_channel_types({'EB': 'eog'})
+
+            ica_eog, eog_scores = ica.find_bads_eog(raw)
+
             # # all the numbers have to be integers
             ica_eog.extend(hr)
             ica_eog = [int(i) for i in ica_eog]

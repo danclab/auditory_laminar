@@ -95,6 +95,7 @@ def run(index, json_file):
                 exclude=ica_exc,
                 verbose=False
             )
+            raw = raw.pick_types(meg=True, eeg=False, ref_meg=True)
 
             raw.filter(
                 l_freq=None,

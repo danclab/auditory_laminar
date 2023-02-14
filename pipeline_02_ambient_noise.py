@@ -197,7 +197,7 @@ def run(index, json_file):
 
             raw = mne.io.read_raw_fif(raw_path, verbose=False)
             # raw = raw.apply_gradient_compensation(2, verbose=True)
-            raw = raw.pick_types(meg=True, eeg=False, ref_meg=True)
+            raw = raw.pick_types(meg=True, eeg=True, ref_meg=True)
             fig = raw.plot_psd(
                 tmax=np.inf, fmax=260, average=True, show=False, picks="meg"
             )
@@ -209,10 +209,10 @@ def run(index, json_file):
             plt.close("all")
 
             info = raw.info
-            raw = raw.get_data()
+            raw_data = raw.get_data(picks='meg')
 
             zapped, iterations = dss_line_iter(
-                raw.transpose(),
+                raw_data.transpose(),
                 50.0,
                 info['sfreq'],
                 win_sz=20,
@@ -223,11 +223,11 @@ def run(index, json_file):
             )
 
             raw = mne.io.RawArray(
-                zapped.transpose(),
+                np.vstack([zapped.transpose(), raw.get_data(picks='eeg')]),
                 info
             )
 
-            fig = raw.plot_psd(tmax=np.inf, fmax=260, average=True, show=False)
+            fig = raw.plot_psd(tmax=np.inf, fmax=260, average=True, show=False, picks='meg')
             fig.suptitle("{}-{}-{}".format(subject_id, session_id, numero))
             plt.savefig(
                 op.join(qc_folder, "{}-{}-{}-zapline-raw-psd.png".format(subject_id, session_id, numero)),
