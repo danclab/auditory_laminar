@@ -54,12 +54,95 @@ def run(index, json_file):
                 verbose="DEBUG",
                 consecutive=True
             )
-            if raw_events[-1,2]==250:
+            
+            # -------------------------------------------------------------
+            # Omit "stop MEG recording" trigger
+            if raw_events[-1,2]==250: 
                 raw_events=raw_events[:-1,:]
-
-            # Adjust event timing based on measured delay
-            evts_to_adjust=(raw_events[:,2]!=70) & (raw_events[:,2]!=100)
+                
+            start_triggers = [1,2,4,7,8,16,32]
+            
+            # Adjust event timing based on measured delay (13 ms)
+            evts_to_adjust=(raw_events[:,2] != 20) & (raw_events[:,2] != 70) & (raw_events[:,2] != 100) & (raw_events[:,2] != 252)               
             raw_events[evts_to_adjust,0]=raw_events[evts_to_adjust,0]+0.013 * raw.info['sfreq']
+            
+            # Correct signal value of preceeding sample 
+            sample_to_adjust=(raw_events[:, 1] != 0)            
+            raw_events[sample_to_adjust, 1] = 0
+            
+            # Add triggers (444 standards, 222 deviants, 333 undetected, 555 detected)
+            tone_start_times = np.arange(0.5, 5, 0.5)
+            tone_events = np.zeros((9, 3))
+            tone_events_all = []
+            for i in range(len(raw_events)):                
+                if raw_events[i][2] in start_triggers:
+                    trial_start_smpl = raw_events[i][0] 
+                    tone_events[:, 0] = np.int_(np.ceil((tone_start_times * raw.info['sfreq']) + trial_start_smpl)) # standard start times in smpls
+                    tone_events[:, 2] = 444
+                    tone_events_all.append(tone_events.tolist())    
+            tone_events_all = np.array(tone_events_all) 
+            tone_events_all = np.concatenate(tone_events_all)  
+            raw_events = np.concatenate((raw_events, tone_events_all))
+            raw_events.view('i8,i8,i8').sort(order=['f1'], axis=0)
+                    
+            # if oddball trial 
+            if (f_n == '001' or f_n == '002'):
+                relevant_triggers = [1,2,4,8,16,32] 
+                deviant_window_count = 0
+                deviant_window = np.loadtxt('deviant_window_Block_' + f_n + '.txt') # deviant_window is an array of 2 col: deviant window & start trigger
+                # check if start triggers match 
+                for i in range(len(raw_events)):
+                    # is trial start 
+                    if (raw_events[i][2] in relevant_triggers):
+                        for j in range(deviant_window_count, len(deviant_window)):
+                            # trial codes match
+                            if (raw_events[i][2] == deviant_window[j][1]):
+                                raw_events[np.int_(i + deviant_window[deviant_window_count][0] + 1)][2] = 222
+                                deviant_window_count += 1
+                                break
+                            # trial codes don't match, participant skipped this trial, check until we get a match...
+                            else: 
+                                deviant_window_count += 1
+                            
+            # if masker & target-present trial    
+            if (f_n == '003' or f_n == '004'):
+                relevant_triggers = [1,2,4]            
+                previous_relevant_trig = 0
+                is_first_detected = False
+                for i in range(len(raw_events)):
+                    current_trig = raw_events[i][2]
+                    if previous_relevant_trig != 0:
+                        # is standard tone
+                        if (previous_relevant_trig in relevant_triggers) and (current_trig == 444):
+                            raw_events[i][2] = 333 # undetected 
+                        # is standard tone after btn press
+                        elif (previous_relevant_trig == 70) and (current_trig == 444):
+                            raw_events[i][2] = 555 # detected 
+                            if is_first_detected and (raw_events[i-2][2] == 333): # correct 2 previous samples 
+                                raw_events[i-2][2] = 555 
+                                if (raw_events[i-3][2] == 333):
+                                    raw_events[i-3][2] = 555
+                                is_first_detected = False 
+                            
+                    # set previous relevant trigger 
+                    if (current_trig in relevant_triggers): # start trial
+                        previous_relevant_trig = current_trig
+                    elif (current_trig == 70) and (previous_relevant_trig != 0): # relevant btn press
+                        previous_relevant_trig = 70
+                        is_first_detected = True 
+                    elif (current_trig == 7): # target absent trial
+                        previous_relevant_trig = 0 
+                                
+            raw_events = np.int_(raw_events)   
+            
+            # Check for duplicates 
+            print("Checking for duplicates...")
+            series = pd.Series(raw_events[:,0])
+            duplicates = series.duplicated()
+            for i in range(len(duplicates)):
+                if (duplicates[i]):
+                    print("Duplicates found!")
+            # -------------------------------------------------------------  
 
             raw = raw.crop(
                 tmin=np.max([0,raw.times[raw_events[0, 0]] - 1.0]),
