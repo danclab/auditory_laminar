@@ -99,11 +99,17 @@ def run(index, json_file):
                 h_freq=hi_pass
             )
 
-            epochs_dict = {
-                "btn_trial": [[100], -.5, .5, -.5, -.3]
-            }
-            if len(np.where(events[:,-1]==70)[0]):
-                epochs_dict["btn_detect"]=[[70], -.5, .5, -.5, -.3]
+            # -------------------------------------------------------------
+            epochs_dict = {}
+            # masker trial 
+            if len(np.where(events[:,-1]==70)[0]): 
+                epochs_dict["undetected"]=[[333], -.05, .45, -.05, -.025] # triggers, epoch time period, basline time period 
+                epochs_dict["detected"]=[[555], -.05, .45, -.05, -.025]
+            # oddball trial
+            elif len(np.where(events[:,-1]==222)[0]): 
+                epochs_dict["standards"]=[[444], -.05, .45, -.05, -.025]
+                epochs_dict["deviants"]=[[222], -.05, .45, -.05, -.025]
+            # -------------------------------------------------------------
 
             for i in epochs_dict.keys():
                 trig, tmin, tmax, bmin, bmax = epochs_dict[i]
