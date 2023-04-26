@@ -47,7 +47,8 @@ files.make_folder(der_path)
 proc_path = op.join(der_path, "processed")
 files.make_folder(proc_path)
 
-subjects = files.get_folders_files(proc_path)[0]
+sub_path = op.join(path, "raw")
+subjects = files.get_folders_files(sub_path)[0]
 subjects.sort()
 subject = subjects[index]
 subject_id = subject.split("/")[-1]
@@ -56,30 +57,31 @@ print("ID:", subject_id)
 sub_path = op.join(proc_path, subject_id)
 files.make_folder(sub_path)
 
-sessions = files.get_folders(subject, 'ses', '')[2]
+sessions = files.get_folders(sub_path, 'ses', '')[2]
 sessions.sort()
 session=sessions[session_index]
 session_id = session.split("/")[-1]
+sess_path = op.join(sub_path, session_id)
 
-meg_path = op.join(subject, session_id, "meg")
+meg_path = op.join(sub_path, session_id, "meg")
 
 qc_folder = op.join(sub_path, session_id, "QC")
 files.make_folder(qc_folder)
 
-raw_paths = files.get_files(session, "zapline-" + subject_id + "-" + session_id, "-raw.fif")[2]
+raw_paths = files.get_files(sess_path, "zapline-" + subject_id + "-" + session_id, "-raw.fif")[2]
 raw_paths.sort()
 raw_path = raw_paths[run_index]
 
-event_paths = files.get_files(session, subject_id + "-" + session_id, "-eve.fif")[2]
+event_paths = files.get_files(sess_path, subject_id + "-" + session_id, "-eve.fif")[2]
 event_paths.sort()
 event_path = event_paths[run_index]
 
-ica_paths = files.get_files(session, subject_id + "-" + session_id, "-ica.fif")[2]
+ica_paths = files.get_files(sess_path, subject_id + "-" + session_id, "-ica.fif")[2]
 ica_paths.sort()
 ica_path = ica_paths[run_index]
 
 ica_json_file = op.join(
-    session,
+    sess_path,
     "{}-{}-ICA_to_reject.json".format(subject_id,session_id)
 )
 
