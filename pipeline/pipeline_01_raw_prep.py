@@ -3,6 +3,7 @@ import json
 from utilities import files
 import numpy as np
 import os.path as op
+import pandas as pd
 import mne
 
 def run(index, json_file):
@@ -66,22 +67,24 @@ def run(index, json_file):
             evts_to_adjust=(raw_events[:,2] != 20) & (raw_events[:,2] != 70) & (raw_events[:,2] != 100) & (raw_events[:,2] != 252)               
             raw_events[evts_to_adjust,0]=raw_events[evts_to_adjust,0]+0.013 * raw.info['sfreq']
             
-            # Correct signal value of preceeding sample 
-            sample_to_adjust=(raw_events[:, 1] != 0)            
+            # Correct signal value of preceeding sample
+            # I don't understand what this does
+            sample_to_adjust=(raw_events[:, 1] != 0)
             raw_events[sample_to_adjust, 1] = 0
             
             # Add triggers (444 standards, 222 deviants, 333 undetected, 555 detected)
             tone_start_times = np.arange(0.5, 5, 0.5)
-            tone_events = np.zeros((9, 3))
             tone_events_all = []
             for i in range(len(raw_events)):                
                 if raw_events[i][2] in start_triggers:
-                    trial_start_smpl = raw_events[i][0] 
-                    tone_events[:, 0] = np.int_(np.ceil((tone_start_times * raw.info['sfreq']) + trial_start_smpl)) # standard start times in smpls
-                    tone_events[:, 2] = 444
-                    tone_events_all.append(tone_events.tolist())    
-            tone_events_all = np.array(tone_events_all) 
-            tone_events_all = np.concatenate(tone_events_all)  
+                    trial_start_smpl = raw_events[i][0]
+                    tone_time = np.int_(np.ceil((tone_start_times * raw.info['sfreq']) + trial_start_smpl)) # standard start times in smpls
+                    for t in range(len(tone_time)):
+                        # We had a problem with one recording where the very end was cut off, so check if event time doesnt
+                        # past the recording time
+                        if tone_time[t]<len(raw.times):
+                            tone_events_all.append([tone_time[t],0,444])
+            tone_events_all = np.array(tone_events_all)
             raw_events = np.concatenate((raw_events, tone_events_all))
             raw_events.view('i8,i8,i8').sort(order=['f1'], axis=0)
                     
@@ -146,7 +149,7 @@ def run(index, json_file):
 
             raw = raw.crop(
                 tmin=np.max([0,raw.times[raw_events[0, 0]] - 1.0]),
-                tmax=np.min([raw.times[-1], raw.times[raw_events[-1, 0]] + 1.0])
+                tmax=np.min([raw.times[-1], raw.times[raw_events[-1, 0]] + 0.1])
             )
 
             raw, events = raw.copy().resample(
