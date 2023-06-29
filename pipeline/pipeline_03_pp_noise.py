@@ -17,7 +17,8 @@ def run(index, json_file):
     proc_path = op.join(der_path, "processed")
     files.make_folder(proc_path)
 
-    subjects = files.get_folders_files(proc_path)[0]
+    sub_path = op.join(path, "raw")
+    subjects = files.get_folders_files(sub_path)[0]
     subjects.sort()
     subject = subjects[index]
     subject_id = subject.split("/")[-1]

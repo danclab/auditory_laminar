@@ -19,7 +19,8 @@ def run(index, json_file):
     proc_path = op.join(der_path, "processed")
     files.make_folder(proc_path)
 
-    subjects = files.get_folders_files(proc_path)[0]
+    sub_path = op.join(path, "raw")
+    subjects = files.get_folders_files(sub_path)[0]
     subjects.sort()
     subject = subjects[index]
     subject_id = subject.split("/")[-1]
@@ -100,7 +101,13 @@ def run(index, json_file):
             )
 
             # -------------------------------------------------------------
-            epochs_dict = {}
+            # Lets keep the button presses in there so we can compare the laminar results with our other datasets
+            epochs_dict = {
+                "btn_trial": [[100], -.5, .5, -.5, -.3]
+            }
+            if len(np.where(events[:, -1] == 70)[0]):
+                epochs_dict["btn_detect"] = [[70], -.5, .5, -.5, -.3]
+
             # masker trial 
             if len(np.where(events[:,-1]==70)[0]): 
                 epochs_dict["undetected"]=[[333], -.05, .45, -.05, -.025] # triggers, epoch time period, basline time period 
