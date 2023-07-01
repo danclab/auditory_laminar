@@ -39,10 +39,9 @@ def run(subject_idx, session_idx, json_file):
     dss = [i for i in dss if "ds" in i]
     dss.sort()
 
-    for ds in dss:
+    for ds_idx,ds in enumerate(dss):
         print("INPUT RAW FILE:", ds)
         numero = int(ds.split(".")[0][-2:])
-        f_n = str(numero).zfill(3)  # file number
 
         raw = mne.io.read_raw_ctf(
             ds,
@@ -90,10 +89,11 @@ def run(subject_idx, session_idx, json_file):
         raw_events.view('i8,i8,i8').sort(order=['f1'], axis=0)
 
         # if oddball trial
-        if (f_n == '001' or f_n == '002'):
+        # EDIT: rely on index rather than filename
+        if (ds_idx == 0 or ds_idx == 1):
             relevant_triggers = [1,2,4,8,16,32]
             deviant_window_count = 0
-            deviant_window = np.loadtxt('deviant_window_Block_' + f_n + '.txt') # deviant_window is an array of 2 col: deviant window & start trigger
+            deviant_window = np.loadtxt('deviant_window_Block_{:03d}.txt'.format((ds_idx+1))) # deviant_window is an array of 2 col: deviant window & start trigger
             # check if start triggers match
             for i in range(len(raw_events)):
                 # is trial start
@@ -109,7 +109,8 @@ def run(subject_idx, session_idx, json_file):
                             deviant_window_count += 1
 
         # if masker & target-present trial
-        if (f_n == '003' or f_n == '004'):
+        # EDIT: rely on index rather than filename
+        if (ds_idx == 2 or ds_idx == 3):
             relevant_triggers = [1,2,4]
             previous_relevant_trig = 0
             is_first_detected = False
@@ -160,7 +161,7 @@ def run(subject_idx, session_idx, json_file):
             n_jobs=-1,
         )
 
-        f_n = str(numero).zfill(3)  # file number
+        f_n = str(ds_idx+1).zfill(3)  # file number
 
         raw_path = op.join(
             sess_path,
