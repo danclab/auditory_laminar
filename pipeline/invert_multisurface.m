@@ -11,11 +11,11 @@ set(0,'DefaultFigureVisible','off')
 patch_size=5;
 n_temp_modes=4;
 
-subj_info=readtable(fiducials_csv);
+subj_info=readtable(fiducials_csv,'Delimiter',',');
 s_idx=find((strcmp(cellstr(subj_info.subject_id),sub)) & (strcmp(cellstr(subj_info.session_id),ses)));
-nas=cellfun(@str2num,split(subj_info.NAS_FS{s_idx},' '));
-lpa=cellfun(@str2num,split(subj_info.LPA_FS{s_idx},' '));
-rpa=cellfun(@str2num,split(subj_info.RPA_FS{s_idx},' '));
+nas=cellfun(@str2num,split(subj_info.NAS_MRI{s_idx},' '));
+lpa=cellfun(@str2num,split(subj_info.LPA_MRI{s_idx},' '));
+rpa=cellfun(@str2num,split(subj_info.RPA_MRI{s_idx},' '));
 
 % Data file to load
 data_file=mat_file
