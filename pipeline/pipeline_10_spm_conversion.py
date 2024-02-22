@@ -107,15 +107,21 @@ def run(index, json_file, parasite):
                 path_split = fif.split(sep)
                 filename_core = path_split[-1].split(".")[0]
 
+
                 output_file = "spm-converted_{}".format(filename_core)
                 output_path = op.join(spm_path, output_file)
-                average_file =  op.join(session, filename_core + "-ave.fif")
                 mat_output = output_path + ".mat"
+                parasite.convert_mne_to_spm(res4, fif, mat_output, 1, nargout=0)
+
+                average_file = op.join(session, filename_core + "-ave.fif")
 
                 epochs = read_epochs(fif, verbose=False)
                 epochs = epochs.average()
                 epochs.save(average_file)
 
+                output_file = "spm-converted_{}-ave".format(filename_core)
+                output_path = op.join(spm_path, output_file)
+                mat_output = output_path + ".mat"
                 parasite.convert_mne_to_spm(res4, average_file, mat_output, 0, nargout=0)
 
 
