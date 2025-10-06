@@ -103,7 +103,7 @@ def run(subj_id, json_file):
                    overwrite=True, show=True, copy=True,
                    register=True, flash5_img=os.path.join(pm_dir, 'flash5.mgz'), verbose=True)
 
-    make_scalp_surfaces(subj_id, subjects_dir=subjects_dir, force=True)
+    make_scalp_surfaces(subj_id, subjects_dir=subjects_dir, force=True, overwrite=True)
 
 if __name__=='__main__':
     try:
