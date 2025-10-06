@@ -4,6 +4,7 @@ import mne
 import os
 import os.path as op
 import subprocess as sp
+import numpy as np
 from utilities import files
 import matplotlib
 matplotlib.use('TkAgg')
@@ -118,9 +119,9 @@ print('')
 
 title_ = "sub:{}, session:{}, file: {}".format(subject_id, session_id, ica_path.split(os.sep)[-1])
 
-ica.plot_components(inst=raw, show=False, title=title_)
+ica.plot_components(inst=raw, picks=np.arange(25), show=False, title=title_)
 
-ica.plot_sources(inst=raw, show=False, title=title_)
+ica.plot_sources(inst=raw, picks=np.arange(25), show=False, title=title_)
 
 plt.show()
 
