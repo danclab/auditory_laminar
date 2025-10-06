@@ -15,7 +15,6 @@ import pandas as pd
 from utilities import files
 from mne.channels import read_dig_fif
 from mne.coreg import Coregistration
-from mne.io.meas_info import _empty_info
 
 def run(index, json_file):
     # opening a json file
@@ -79,8 +78,8 @@ def run(index, json_file):
         dig.save(dig_montage_fname, overwrite=True)
 
         # Create a fake info object for the digital montage
-        info = _empty_info(1)
-        info["dig"] = read_dig_fif(fname=dig_montage_fname).dig
+        info = mne.create_info(ch_names=['misc'], sfreq=1000.0, ch_types=['misc'])  # minimal, safe
+        info.set_montage(read_dig_fif(dig_montage_fname))
         info._unlocked = False
 
         # Plotting options
@@ -123,7 +122,7 @@ def run(index, json_file):
         fig.savefig(op.join(qc_folder, '{}-{}-coreg-fit_fiducials.png'.format(subject_id, session_id)))
 
         # ICP fit - not fitting fiducial locations, just digitised points
-        coreg.fit_icp(n_iterations=50, nasion_weight=0.0,  lpa_weight=0.0, rpa_weight=0.0, verbose=True)
+        coreg.fit_icp(n_iterations=100, nasion_weight=0.0,  lpa_weight=0.0, rpa_weight=0.0, verbose=True)
 
         # Visualize final alignment
         align_fig = mne.viz.plot_alignment(info, trans=coreg.trans, **plot_kwargs)
@@ -138,34 +137,41 @@ def run(index, json_file):
         trans_fname=op.join(sess_path, '{}-{}-trans.fif'.format(subject_id, session_id))
         mne.write_trans(trans_fname, coreg.trans, overwrite=True)
 
-        # Apply inverse transformation to fiducial coordinates to get coordinates in FreeSurfer space
-        lpa_t=apply_trans(invert_transform(coreg.trans), lpa)*1e3
-        rpa_t = apply_trans(invert_transform(coreg.trans), rpa) * 1e3
-        nas_t = apply_trans(invert_transform(coreg.trans), nas) * 1e3
-        lpa_t_str = ' '.join(['{}'.format(x) for x in lpa_t])
-        rpa_t_str = ' '.join(['{}'.format(x) for x in rpa_t])
-        nas_t_str = ' '.join(['{}'.format(x) for x in nas_t])
+        # Head (m) -> tkRAS (m) using coreg.trans, then to mm
+        lpa_tkras = apply_trans(coreg.trans, lpa) * 1e3
+        rpa_tkras = apply_trans(coreg.trans, rpa) * 1e3
+        nas_tkras = apply_trans(coreg.trans, nas) * 1e3
+
+        lpa_t_str = ' '.join(['{}'.format(x) for x in lpa_tkras])
+        rpa_t_str = ' '.join(['{}'.format(x) for x in rpa_tkras])
+        nas_t_str = ' '.join(['{}'.format(x) for x in nas_tkras])
         fiducial_data.loc[(fiducial_data['subject_id'] == subject_id) & (fiducial_data['session_id'] == session_id), 'LPA_FS'] = lpa_t_str
         fiducial_data.loc[(fiducial_data['subject_id'] == subject_id) & (fiducial_data['session_id'] == session_id), 'RPA_FS'] = rpa_t_str
         fiducial_data.loc[(fiducial_data['subject_id'] == subject_id) & (fiducial_data['session_id'] == session_id), 'NAS_FS'] = nas_t_str
 
-        # Read RAS offset from freesurfer volume
-        out=subprocess.check_output(['/usr/local/freesurfer/6.0.0/bin/mri_info', '--cras', os.path.join(subjects_dir,subject_id, 'mri/orig.mgz')])
-        ras_offset = np.array([float(x) for x in out.decode().split(' ')])
+        # Read FreeSurfer matrices from the SAME volume SPM will use (ideally orig.mgz from recon-all)
+        orig_mgz = os.path.join(subjects_dir, subject_id, 'mri', 'orig.mgz')
 
-        # Convert Freesurfer fiducial coordinates to MRI
-        lpa_t=lpa_t+ras_offset
-        rpa_t=rpa_t+ras_offset
-        nas_t=nas_t+ras_offset
-        lpa_t_str = ' '.join(['{}'.format(x) for x in lpa_t])
-        rpa_t_str = ' '.join(['{}'.format(x) for x in rpa_t])
-        nas_t_str = ' '.join(['{}'.format(x) for x in nas_t])
-        fiducial_data.loc[(fiducial_data['subject_id'] == subject_id) & (
-                    fiducial_data['session_id'] == session_id), 'LPA_MRI'] = lpa_t_str
-        fiducial_data.loc[(fiducial_data['subject_id'] == subject_id) & (
-                    fiducial_data['session_id'] == session_id), 'RPA_MRI'] = rpa_t_str
-        fiducial_data.loc[(fiducial_data['subject_id'] == subject_id) & (
-                    fiducial_data['session_id'] == session_id), 'NAS_MRI'] = nas_t_str
+        def _mat(flag):  # returns 4x4
+            out = subprocess.check_output(['mri_info', flag, orig_mgz]).decode().strip().split()
+            return np.array([float(x) for x in out]).reshape(4, 4)
+
+        Torig = _mat('--vox2ras-tkr')  # vox -> tkRAS (mm)
+        Norig = _mat('--vox2ras')  # vox -> scanner RAS (mm)
+        iTorig = np.linalg.inv(Torig)
+
+        def tkras_to_scanner_ras(xyz_mm):
+            xyz1 = np.r_[xyz_mm, 1.0]
+            return (Norig @ (iTorig @ xyz1))[:3]
+
+        lpa_spm = tkras_to_scanner_ras(lpa_tkras)
+        rpa_spm = tkras_to_scanner_ras(rpa_tkras)
+        nas_spm = tkras_to_scanner_ras(nas_tkras)
+
+        # Save SPM/native-space mm coords
+        for lab, arr in zip(('LPA_MRI', 'RPA_MRI', 'NAS_MRI'), (lpa_spm, rpa_spm, nas_spm)):
+            fiducial_data.loc[(fiducial_data['subject_id'] == subject_id) &
+                              (fiducial_data['session_id'] == session_id), lab] = ' '.join(f'{x:.6f}' for x in arr)
 
 
     fiducial_data.to_csv(op.join(proc_path, 'fiducials.csv'), index=False)
