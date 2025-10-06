@@ -12,6 +12,7 @@ def run(subject_index, session_index, json_file):
         parameters = json.load(pipeline_file)
 
     path = parameters["dataset_path"]
+    high_pass = parameters["high_pass_filter"]
     low_pass = parameters["low_pass_filter"]
 
     der_path = op.join(path, "derivatives")
@@ -60,6 +61,8 @@ def run(subject_index, session_index, json_file):
 
     raw_ica_eve = list(zip(raw_paths, ica_keys, event_paths))
 
+    session_epochs={}
+    
     for (raw_path, ica_key, eve_path) in raw_ica_eve:
         # for (raw_path, ica_key, eve_path) in [raw_ica_eve[3]]:
         ica_path = op.join(
@@ -95,17 +98,17 @@ def run(subject_index, session_index, json_file):
         raw = raw.pick_types(meg=True, eeg=False, ref_meg=True)
 
         raw.filter(
-            l_freq=None,
+            l_freq=high_pass,
             h_freq=low_pass
         )
 
         # -------------------------------------------------------------
         # Lets keep the button presses in there so we can compare the laminar results with our other datasets
         epochs_dict = {
-            "btn_trial": [[100], -.5, .5, -.5, -.3]
+            "btn_trial": [[100], -2, 2, -.5, -.3]
         }
         if len(np.where(events[:, -1] == 70)[0]):
-            epochs_dict["btn_detect"] = [[70], -.5, .5, -.5, -.3]
+            epochs_dict["btn_detect"] = [[70], -2, 2, -.5, -.3]
 
         # masker trial
         if len(np.where(events[:,-1]==70)[0]):
@@ -124,22 +127,28 @@ def run(subject_index, session_index, json_file):
                 mne.pick_events(events, include=trig),
                 tmin=tmin,
                 tmax=tmax,
-                baseline=(bmin, bmax),
+                baseline=None,#(bmin, bmax),
                 verbose=True,
                 detrend=1
             )
 
-            epoch_path = op.join(
-                sess_path,
-                "{}-{}-{}-{}-epo.fif".format(subject_id, session_id, numero, i)
-            )
+            if not i in session_epochs:
+                session_epochs[i]=[]
+            session_epochs[i].append(epoch)
 
-            epoch.save(
-                epoch_path,
-                fmt="double",
-                overwrite=True,
-                verbose=False,
-            )
+    for i in session_epochs:
+        all_epochs = mne.concatenate_epochs(session_epochs[i], verbose=False)
+        epoch_path = op.join(
+            sess_path,
+            "{}-{}-{}-epo.fif".format(subject_id, session_id, i)
+        )
+
+        all_epochs.save(
+            epoch_path,
+            fmt="double",
+            overwrite=True,
+            verbose=False,
+        )
 
 
 

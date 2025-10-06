@@ -59,9 +59,8 @@ def run(subject_index, session_index, json_file):
     # for epo in epo_paths:
     for epo in epo_paths:
         print("INPUT FILE:", epo)
-        numero = epo.split(sep)[-1].split("-")[4]
         epochs = read_epochs(epo, verbose=False)
-        epo_type = epo.split(sep)[-1].split("-")[5]
+        epo_type = epo.split(sep)[-1].split("-")[4]
 
         ch_thr = compute_thresholds(
             epochs,
@@ -82,7 +81,7 @@ def run(subject_index, session_index, json_file):
             res = [np.where(ch_tr[i][0] > thr)[0].shape[0] for i in range(len(epochs))]
             res = np.array(res)
             results[ix, :] = res
-        name = "{}-{}-{}-{}".format(subject_id, session_id, numero, epo_type)
+        name = "{}-{}-{}".format(subject_id, session_id, epo_type)
         npy_path = op.join(qc_folder, name + ".npy")
         np.save(npy_path, results)
         img_path = op.join(qc_folder, name + "-epo-QC.png")

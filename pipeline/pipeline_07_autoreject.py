@@ -48,23 +48,16 @@ def run(subject_index, session_idx, json_file):
     epo_paths = files.get_files(sess_path, "sub", "-epo.fif")[2]
 
     epo_paths.sort()
-    eve_paths = files.get_files(sess_path, "sub", "-eve.fif")[2]
-    eve_paths.sort()
 
     for epo in epo_paths:
-        # for epo in [epo_paths[0]]:
-        numero = epo.split(sep)[-1].split("-")[4]
-        epo_type = epo.split(sep)[-1].split("-")[5]
+        epo_type = epo.split(sep)[-1].split("-")[4]
 
-        eve_path = [i for i in eve_paths if numero + '-eve' in i][0]
-
-        print("EVE:", eve_path.split(sep)[-1])
         print("EPO:", epo.split(sep)[-1])
 
         epochs = read_epochs(epo, verbose=False, preload=True)
         print("AMOUNT OF EPOCHS:", len(epochs))
 
-        name = "{}-{}-{}-{}".format(subject_id, session_id, numero, epo_type)
+        name = "{}-{}-{}".format(subject_id, session_id, epo_type)
 
         fig = epochs.average().plot(spatial_colors=True, show=False)
         plt.savefig(op.join(qc_folder, "{}-pre-autorej_erf.png".format(name)))
