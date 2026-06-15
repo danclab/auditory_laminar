@@ -192,22 +192,26 @@ subjects = [
     'sub-104',
     'sub-105',
     'sub-106',
-    'sub-112', 'sub-112',
     'sub-114'
 ]
 sessions = [
     'ses-01',
     'ses-01',
     'ses-01',
-    'ses-01', 'ses-02',
     'ses-01'
 ]
 
 n_layers = 11
 
 
-def run(epo_type, patch_size, spm):
-    base_out_dir = os.path.join('/home/bonaiuto/auditory_laminar/output/', epo_type, '02_mefI', f'patch_size_{patch_size:.2f}mm')
+def run(epo_type, patch_size, win_size, spm):
+    base_out_dir = os.path.join(
+        '/home/bonaiuto/auditory_laminar/output/',
+        epo_type,
+        '02_mefI',
+        f'patch_size_{patch_size:.2f}mm',
+        f'win_size_{win_size}ms'
+    )
     if not os.path.exists(base_out_dir):
         os.mkdir(base_out_dir)
 
@@ -371,6 +375,10 @@ def run(epo_type, patch_size, spm):
         prior_ts = layer_ts[prior, :]
 
         # Run sliding time window model comparison
+        n_t = 4
+        # Need to use fewer temporal modes with a smaller window size
+        if win_size == 10:
+            n_t = 1
         [Fs, wois] = sliding_window_model_comparison(
             prior,
             nas,
@@ -383,9 +391,9 @@ def run(epo_type, patch_size, spm):
             viz=False,
             invert_kwargs={
                 'patch_size': patch_size,
-                'n_temp_modes': 4,
+                'n_temp_modes': n_t,
                 'n_spatial_modes': rank['mag'],
-                'win_size': 25,
+                'win_size': win_size,
                 'win_overlap': True
             }
         )
@@ -407,8 +415,9 @@ def run(epo_type, patch_size, spm):
 if __name__ == '__main__':
     spm = spm_standalone.initialize()
 
-    for epo_type in ['btn_trial','btn_detect','btn']:
-        for patch_size in [5.0]:
-            run(epo_type, patch_size, spm)
+    for epo_type in ['btn_trial']:
+        for patch_size in [2.5, 5.0, 7.5, 10.0]:
+            for win_size in [10, 25, 50]:
+                run(epo_type, patch_size, win_size, spm)
 
     spm.terminate()
